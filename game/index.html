@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Port Meridian — an open-world crime game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1420;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eef1f5; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; }
+  #topbar { position: absolute; top: 12px; left: 16px; right: 16px; display: flex;
+    justify-content: space-between; align-items: flex-start; }
+  #stars { font-size: 30px; letter-spacing: 4px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #stars .star { color: rgba(255,255,255,.25); }
+  #stars .star.on { color: #ffd23f; }
+  #stars.hot { animation: pulse 0.7s infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.06); } }
+  #money-box { text-align: right; }
+  #money { font-size: 26px; font-weight: 800; color: #7ddf8a; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #clock { font-size: 18px; font-weight: 600; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #health-wrap { margin-top: 6px; width: 220px; height: 12px; background: rgba(0,0,0,.55);
+    border: 1px solid rgba(255,255,255,.4); border-radius: 6px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #37c978, #7ddf8a); }
+  #health-label { font-size: 12px; letter-spacing: 2px; opacity: .9; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #minimap { position: absolute; top: 86px; right: 16px; width: 180px; height: 180px;
+    border: 2px solid rgba(255,255,255,.65); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+  #objective-box { position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%);
+    max-width: 640px; text-align: center; }
+  #mission-name { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #ffd23f;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+  #objective { font-size: 17px; text-shadow: 0 2px 6px rgba(0,0,0,.8); margin-top: 2px; }
+  #mission-timer { font-size: 20px; font-weight: 800; color: #ff9a3d; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+  #speed { position: absolute; right: 20px; bottom: 18px; font-size: 26px; font-weight: 800;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+  #car-hint { position: absolute; left: 16px; bottom: 18px; font-size: 14px; opacity: .9;
+    text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #save-ind { position: absolute; left: 16px; bottom: 44px; font-size: 13px; color: #7ddf8a;
+    opacity: 0; transition: opacity .4s; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #banner { position: absolute; left: 50%; top: 22%; transform: translateX(-50%);
+    font-size: 24px; font-weight: 800; text-align: center; color: #ffd23f;
+    text-shadow: 0 2px 8px rgba(0,0,0,.9); opacity: 0; transition: opacity .4s; max-width: 720px; }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 18px; height: 18px;
+    margin: -9px 0 0 -9px; z-index: 6; pointer-events: none; display: none; }
+  #crosshair::before, #crosshair::after { content: ""; position: absolute; background: rgba(255,255,255,.9);
+    box-shadow: 0 0 4px rgba(0,0,0,.9); }
+  #crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+  #crosshair::after { left: 0; top: 8px; width: 18px; height: 2px; }
+  /* Screens */
+  .screen { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; z-index: 10;
+    background: linear-gradient(180deg, rgba(8,16,32,.82), rgba(8,16,32,.62)); }
+  .screen h1 { font-size: 64px; margin: 0; letter-spacing: 6px; color: #ffd23f;
+    text-shadow: 0 4px 0 #7a4d00, 0 8px 24px rgba(0,0,0,.8); }
+  .screen h2 { font-size: 20px; font-weight: 400; margin: 8px 0 4px; color: #cfe3f5; }
+  .screen p { max-width: 620px; line-height: 1.55; margin: 10px 18px; color: #dbe7f2; }
+  .screen .controls { font-size: 15px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25);
+    border-radius: 10px; padding: 12px 20px; margin-top: 8px; }
+  .screen .cta { margin-top: 18px; font-size: 18px; font-weight: 800; color: #0e1420;
+    background: #ffd23f; border-radius: 999px; padding: 12px 28px; }
+  .screen .small { font-size: 13px; opacity: .75; }
+  #screen-over h1 { color: #ff6a5a; text-shadow: 0 4px 0 #5a0d05, 0 8px 24px rgba(0,0,0,.8); }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game" aria-label="Port Meridian: an open-world crime game. Drive, steal cars, dodge the police and finish three missions."></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="topbar">
+    <div>
+      <div id="stars"></div>
+      <div id="health-label">HEALTH</div>
+      <div id="health-wrap"><div id="health-fill"></div></div>
+    </div>
+    <div id="money-box">
+      <div id="money">$0</div>
+      <div id="clock">09:12</div>
+    </div>
+  </div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="objective-box">
+    <div id="mission-name"></div>
+    <div id="objective"></div>
+    <div id="mission-timer"></div>
+  </div>
+  <div id="speed"></div>
+  <div id="car-hint"></div>
+  <div id="save-ind"></div>
+  <div id="banner"></div>
+</div>
+<div id="crosshair"></div>
+
+<div class="screen" id="screen-title" style="display:flex">
+  <h1>PORT MERIDIAN</h1>
+  <h2>An open-world crime story on the sunny coast</h2>
+  <p>Rook is a getaway driver with no car, no cash and one last chance. A fixer
+  named Marlowe offers three jobs: a parcel run, a getaway through a police
+  dragnet, and one big score at the pier. Steal what you need, mind the stars,
+  and don't get caught.</p>
+  <div class="controls">
+    WASD — move / drive &nbsp;•&nbsp; Mouse drag — camera &nbsp;•&nbsp; E — steal / exit car<br>
+    Click — shoot &nbsp;•&nbsp; Space — handbrake &nbsp;•&nbsp; Shift — run &nbsp;•&nbsp; M — retry mission &nbsp;•&nbsp; Esc — pause
+  </div>
+  <div class="cta">CLICK OR PRESS SPACE TO START</div>
+  <p class="small" id="saved-line">Three missions, free roam after the score. Progress saves in this browser.</p>
+</div>
+
+<div class="screen" id="screen-pause">
+  <h1>PAUSED</h1>
+  <p>Port Meridian waits for no one — except now. Press Esc or Space to keep driving.</p>
+</div>
+
+<div class="screen" id="screen-over">
+  <h1 id="over-title">BUSTED</h1>
+  <p id="over-reason"></p>
+  <p id="over-stats"></p>
+  <div class="cta">CLICK OR PRESS SPACE TO TRY AGAIN</div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
